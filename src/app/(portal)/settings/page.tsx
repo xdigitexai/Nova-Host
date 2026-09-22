@@ -1,0 +1,1 @@
+export default function Settings(){return <main><p className="muted">ACCOUNT</p><h1>Settings</h1><div className="card" style={{padding:28,maxWidth:650}}><h2>Security</h2><p className="muted">Manage password and account security preferences.</p><button className="btn secondary">Change password</button></div></main>}

@@ -1,0 +1,1 @@
+import{Sidebar}from"@/components/sidebar";export default function PortalLayout({children}:{children:React.ReactNode}){return <><Sidebar/><div className="shell" style={{marginLeft:245,minHeight:"100vh",padding:"32px clamp(20px,4vw,55px)"}}>{children}</div></>}

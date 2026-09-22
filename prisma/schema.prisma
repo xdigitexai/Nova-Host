@@ -1,0 +1,268 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+enum PaymentProvider {
+  XDIGITEX
+  PAYSTACK
+}
+enum TransactionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+enum LedgerType {
+  DEPOSIT
+  PANEL_PURCHASE
+  BOT_DEPLOYMENT
+  RENEWAL
+  REFUND
+  ADMIN_CREDIT
+  ADMIN_DEBIT
+}
+enum OrderStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+enum SubscriptionStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  EXPIRED
+  CANCELLED
+}
+enum DeploymentStatus {
+  QUEUED
+  VALIDATING
+  SELECTING_PROVIDER
+  CHECKING_HEALTH
+  CLONING_REPOSITORY
+  CREATING_SERVER
+  INSTALLING_DEPENDENCIES
+  RUNNING_HEALTH_CHECK
+  VERIFYING_BOT_IS_LIVE
+  COMPLETED
+  FAILED
+  ROLLING_BACK
+}
+
+model User {
+  id String @id @default(cuid())
+  email String @unique
+  passwordHash String?
+  role Role @default(CUSTOMER)
+  status UserStatus @default(ACTIVE)
+  emailVerified DateTime?
+  profile Profile?
+  wallet Wallet?
+  transactions Transaction[]
+  orders Order[]
+  subscriptions Subscription[]
+  deployments Deployment[]
+  tickets SupportTicket[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Profile {
+  id String @id @default(cuid())
+  userId String @unique
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName String
+  lastName String
+  username String @unique
+  phone String
+  countryId String
+  country Country @relation(fields: [countryId], references: [id])
+}
+
+model Country {
+  id String @id @default(cuid())
+  name String
+  isoCode String @unique
+  dialingCode String
+  currencyCode String
+  currencySymbol String
+  paymentProvider PaymentProvider
+  enabled Boolean @default(true)
+  minimumDeposit Decimal @db.Decimal(18,2)
+  priceMultiplier Decimal @default(1) @db.Decimal(8,4)
+  profiles Profile[]
+  planPrices PlanPrice[]
+  @@index([enabled])
+}
+
+model Wallet {
+  id String @id @default(cuid())
+  userId String @unique
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currency String
+  balance Decimal @default(0) @db.Decimal(18,2)
+  version Int @default(0)
+  entries WalletLedger[]
+  updatedAt DateTime @updatedAt
+}
+
+model WalletLedger {
+  id String @id @default(cuid())
+  walletId String
+  wallet Wallet @relation(fields: [walletId], references: [id])
+  type LedgerType
+  amount Decimal @db.Decimal(18,2)
+  balanceAfter Decimal @db.Decimal(18,2)
+  reference String @unique
+  reason String?
+  metadata Json?
+  createdAt DateTime @default(now())
+  @@index([walletId, createdAt])
+}
+
+model Transaction {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id])
+  provider PaymentProvider
+  providerReference String? @unique
+  amount Decimal @db.Decimal(18,2)
+  currency String
+  status TransactionStatus @default(PENDING)
+  gateway String
+  metadata Json?
+  completedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([userId, createdAt])
+  @@index([status])
+}
+
+model Plan {
+  id String @id @default(cuid())
+  name String @unique
+  ramMb Int
+  diskMb Int
+  cpuPercent Int
+  serverLimit Int
+  deploymentLimit Int
+  billingDays Int @default(30)
+  active Boolean @default(true)
+  fairUse Boolean @default(false)
+  prices PlanPrice[]
+  orders Order[]
+  subscriptions Subscription[]
+}
+
+model PlanPrice {
+  id String @id @default(cuid())
+  planId String
+  plan Plan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  countryId String
+  country Country @relation(fields: [countryId], references: [id])
+  currency String
+  amount Decimal @db.Decimal(18,2)
+  @@unique([planId, countryId])
+}
+
+model Order {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id])
+  planId String
+  plan Plan @relation(fields: [planId], references: [id])
+  amount Decimal @db.Decimal(18,2)
+  currency String
+  status OrderStatus @default(PENDING)
+  failureReason String?
+  subscription Subscription?
+  createdAt DateTime @default(now())
+}
+
+model Subscription {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id])
+  planId String
+  plan Plan @relation(fields: [planId], references: [id])
+  orderId String @unique
+  order Order @relation(fields: [orderId], references: [id])
+  status SubscriptionStatus @default(PENDING)
+  panelUrl String?
+  externalId String?
+  renewsAt DateTime
+  deployments Deployment[]
+  createdAt DateTime @default(now())
+}
+
+model Deployment {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id])
+  subscriptionId String
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+  appName String @unique
+  botType String
+  externalJobId String? @unique
+  provider String @default("pterodactyl")
+  status DeploymentStatus @default(QUEUED)
+  repository String?
+  branch String?
+  appUrl String?
+  logsUrl String?
+  encryptedConfig String?
+  error String?
+  completedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([userId, createdAt])
+}
+
+model WebhookEvent {
+  id String @id @default(cuid())
+  provider PaymentProvider
+  externalId String
+  payload Json
+  processedAt DateTime?
+  createdAt DateTime @default(now())
+  @@unique([provider, externalId])
+}
+
+model SupportTicket {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id])
+  subject String
+  message String
+  status String @default("open")
+  createdAt DateTime @default(now())
+}
+
+model AdminAuditLog {
+  id String @id @default(cuid())
+  adminId String
+  action String
+  targetType String
+  targetId String
+  metadata Json?
+  createdAt DateTime @default(now())
+  @@index([adminId, createdAt])
+}
+
+model Setting {
+  key String @id
+  value Json
+  updatedAt DateTime @updatedAt
+}
