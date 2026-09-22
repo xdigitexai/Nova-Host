@@ -12,5 +12,6 @@ export const deployApi = {
   status: (jobId: string) => request(`/external/status/${encodeURIComponent(jobId)}`, { cache: "no-store" }),
   action: (action: string, app: string, body?: unknown) => request(`/external/${action}/${encodeURIComponent(app)}`, { method: action === "config" ? "PATCH" : action === "delete" ? "DELETE" : "POST", body: body ? JSON.stringify(body) : undefined }),
   check: (app: string) => request(`/external/check/${encodeURIComponent(app)}`, { cache: "no-store" }),
-  logs: (app: string) => request(`/logs/${encodeURIComponent(app)}`, { cache: "no-store" }),
+  logs: (app: string, lines = 200) => request(`/logs/${encodeURIComponent(app)}?lines=${lines}`, { cache: "no-store" }),
+  config: (app: string) => request(`/external/config/${encodeURIComponent(app)}`, { cache: "no-store" }),
 };
